@@ -1,15 +1,20 @@
 ﻿### Auto-generate genre-based playlists in Spotify ###
 ### For tips see https://www.pdq.com/blog/create-a-hipster-playlist-using-powershell/ ###
 
+# Choose a genre
+$PlaylistGenre = "Classical"
+
 # Set up some constants
 $ClientId = "6c0ccee4314e43358a559c9027f88cb7"
 $ClientSecret = "dc716980faf14139975e81ea34d7041"
+$RedirectUrl = "http://www.google.com/"
 
 # Get auth from Spotify
-$AccessRequestUri = `    "https://accounts.spotify.com/authorize?" + `    "client_id=" + $ClientId + `    "&response_type=token" + `    "&redirect_uri=//www.pdq.com/aa/img/jonathan-lindgren-hipster-220x247-lossy30.gif"
+$AccessRequestUri = `    "https://accounts.spotify.com/authorize?" + `    "client_id=" + $ClientId + `    "&response_type=token" + `    "&redirect_uri=$RedirectUrl" + `
+    "&scope=user-library-read playlist-read-public playlist-modify-public playlist-read-private playlist-modify-private" + `
+    "&show_dialog=false"
 
-# $AccessRequestHeaders = @{}
-# $AccessRequestHeaders.Add("client_id", $ClientId)# $AccessRequestHeaders.Add("response_type", "token")$AccessRequestUri# open browser window to loginAdd-Type -AssemblyName System.Windows.Forms
+# "Access Request Uri: " + $AccessRequestUri# open browser window to loginAdd-Type -AssemblyName System.Windows.Forms
 $FormProperties =
 @{
     Size = New-Object System.Drawing.Size(850, 675)
@@ -28,15 +33,7 @@ $Form.Controls.Add($Browser)
 $Browser.Navigate($AccessRequestUri)
 $Form.Add_Shown({$Form.Activate()})
 $Form.ShowDialog()If ($Browser.url.Fragment -match "access_token=(.*)&token") {$AccessToken = $Matches[1]}
-#$AccessToken = `#    Invoke-WebRequest `#    -Method Get `
-#    -Uri $AccessRequestUri
-  #  -Headers $AccessRequestHeaders
-
-#$AccessToken.Content
-
-
-#$Token = "BQBqSUFivCcEOSXDy3aPp16oXt8H1ly7mG2C1VX_LhSyySm0u8NC9-Vgd9G6yrSpKE0_jRTGeQ-WuJYKiA_Elfzog7XZtlCA6ZEVoTqcN7znOJzD0RBdLb5hB4-D0-3ePllnyrT4GjpHNHOhZSkIfo_D2yaNXkdgA-QI5Q"
-
+# "Access Token: " + $AccessToken
 $SpotifyApiUrl = "https://api.spotify.com/v1/"
 $CurrentUserTracksEndpoint = "me/tracks"
 
