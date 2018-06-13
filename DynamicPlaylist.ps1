@@ -95,7 +95,7 @@ $TrackListJson `
     | Select -expand track `
     | Select -expand album `
     | Select id
-$AlbumId = "6X31sE7CXKZiUw4ppitLuj"
+$AlbumId = "3rXXjwi61u1Sh3ax42T5SV"
 
 $AlbumExample = `
     Invoke-WebRequest `
@@ -103,4 +103,4 @@ $AlbumExample = `
     -Uri ($SpotifyApiUrl + $AlbumEndpoint + $AlbumId) `
     -Headers $Headers
 
-$AlbumExample
+($AlbumExample.Content | ConvertFrom-Json) | Select genres
