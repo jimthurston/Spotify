@@ -1,17 +1,12 @@
-﻿### Auto-generate genre-based playlists in Spotify ###
-### For tips see https://www.pdq.com/blog/create-a-hipster-playlist-using-powershell/ ###
-
-# Variables
-$Mode = "Fresh"
-$PlaylistGenre = "Classical"
-$TrackCount = 10
+﻿# Variables
+$Artist = "Ozric Tentacles"
 
 # Constants
 $ClientId = "6c0ccee4314e43358a559c9027f88cb7"
 $ClientSecret = "dc716980faf14139975e81ea34d7041c"
 $RedirectUrl = "http://www.google.com/"
 $SpotifyApiUrl = "https://api.spotify.com/v1/"
-$AccessToken = "BQCf0uWvqD0Nxb350XWSL1JIxSe4UY64SVopNivKQmSSk7fT-zfnfY0ipbEyDNjx6byoRAYM0Jpq2sgKx3f5hFPyPbS51GNWBqTwWswL-mf9nNGvEmQQBcm0HrsOzE9Idp9qP27gKjZpjfkxOU0d1MSQSHOoxo-rXmSsZ0kPbwmibQsIApSPojOGsc0SoWPLskr5U67DPuq62Blk9zB6HUjT8MiMOJFlkH4NyC__2HWRAA"
+$AccessToken = "BQAk77P5XbGW5isukMRwmxci7E5h6chMT_93TRr61g2s0g-dfO3htoCOx4jd-1JXKnOVaEl8QbonTr89Pp7Mel2wy4u7reTrSTt-PE40Ge_bWk7U7e-AaizVq9n2C2fYUNSeQ-FHI_BblZ8kC19lJvs9_M6OK-SiwoxhtbbixIP5lIJVFzTDjtRUhQ418ofDNPQj99RMYda1R6bbcHJvRwr_vycBsv5bVV28Sx_bRB61pw"
 
 # Headers used in all requests (except renewing access token)
 $Headers = @{}
@@ -63,7 +58,7 @@ catch
         $Form.Controls.Add($Browser)
         $Browser.Navigate($AccessRequestUri)
         $Form.Add_Shown({$Form.Activate()})
-        $Form.ShowDialog()        If ($Browser.url.Fragment -match "access_token=(.*)&token") {$AccessToken = $Matches[1]}
+        $Form.ShowDialog()        "Browser URL: " + $Browser.url        "Browser URL fragment: " + $Browser.url.Fragment        If ($Browser.url.Fragment -match "access_token=(.*)&token") {$AccessToken = $Matches[1]}
         "Access Token: " + $AccessToken
 
         # try authenticating again
@@ -72,50 +67,47 @@ catch
 }
 
 
-# Genre Playlist
-If ($Mode -eq "Genre")
+# Start by getting a count of all saved tracks for looping
+$CurrentUserTracksEndpoint = "me/tracks"
+$LimitSuffix = "?limit=50"
+$OffsetSuffix = "&offset="
+$Offset = 0
+$TrackListJson = @()
+
+$TrackList = `
+    Invoke-WebRequest `
+    -Method Get `
+    -Uri ($SpotifyApiUrl + $CurrentUserTracksEndpoint + $LimitSuffix + $OffsetSuffix + $Offset) `
+    -Headers $Headers
+
+$TrackListJson += $TrackList.Content | ConvertFrom-Json
+$TrackCount = $TrackListJson.total
+
+# Go fetch all saved tracks
+While ($Offset -le $TrackCount)
 {
-    $CurrentUserTracksEndpoint = "me/tracks"
-    $AlbumEndpoint = "albums/"
-    $LimitSuffix = "?limit=50"
-    $OffsetSuffix = "&offset="
-    $Offset = "0"
+    $Offset = $Offset + 50
+    "Offset: " + $Offset
 
     $TrackList = `
-        Invoke-WebRequest `
-        -Method Get `
-        -Uri ($SpotifyApiUrl + $CurrentUserTracksEndpoint + $LimitSuffix + $OffsetSuffix + $Offset) `
-        -Headers $Headers
+    Invoke-WebRequest `
+    -Method Get `
+    -Uri ($SpotifyApiUrl + $CurrentUserTracksEndpoint + $LimitSuffix + $OffsetSuffix + $Offset) `
+    -Headers $Headers
 
-    $TrackListJson = $TrackList.Content | ConvertFrom-Json
+    $TrackListJson += $TrackList.Content | ConvertFrom-Json
 
-    $TrackListJson `
-        | Select -expand items `
-        | Select -expand track `
-        | Select    id, `
-                    name, `
-                    @{Name = 'artists'; Expression = {$_.artists.name}}, `
-                    @{Name = 'album'; Expression = {$_.album.name}}
-
-    #$TracksWithAlbums = `
-    $TrackListJson `
-        | Select -expand items `
-        | Select -expand track `
-        | Select -expand album `
-        | Select id
-    $AlbumId = "3rXXjwi61u1Sh3ax42T5SV"
-
-    $AlbumExample = `
-        Invoke-WebRequest `
-        -Method Get `
-        -Uri ($SpotifyApiUrl + $AlbumEndpoint + $AlbumId) `
-        -Headers $Headers
-
-    ($AlbumExample.Content | ConvertFrom-Json) | Select genres
+    Continue
 }
 
-# Freshen up Playlist
-ElseIf ($Mode -eq "Fresh")
-{
-    
-}
+$AllTracks =
+$TrackListJson `
+    | Select -expand items `
+    | Select -expand track `
+    | Select    id, `
+                name, `
+                @{Name = 'artists'; Expression = {$_.artists.name}}, `
+                @{Name = 'album'; Expression = {$_.album.name}}
+
+# Now filter tracks by artist
+$AllTracks | Where-Object artists -EQ $Artist | Select-Object album, name | Sort-Object album, name
