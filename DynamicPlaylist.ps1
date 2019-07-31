@@ -2,8 +2,8 @@
 ### For tips see https://www.pdq.com/blog/create-a-hipster-playlist-using-powershell/ ###
 
 # Variables
-$Mode = "Fresh"
-$PlaylistGenre = "Classical"
+$Mode = "Genre"
+$PlaylistGenre = "classical"
 $TrackCount = 10
 
 # Constants
@@ -11,7 +11,7 @@ $ClientId = "6c0ccee4314e43358a559c9027f88cb7"
 $ClientSecret = "dc716980faf14139975e81ea34d7041c"
 $RedirectUrl = "http://www.google.com/"
 $SpotifyApiUrl = "https://api.spotify.com/v1/"
-$AccessToken = "BQCf0uWvqD0Nxb350XWSL1JIxSe4UY64SVopNivKQmSSk7fT-zfnfY0ipbEyDNjx6byoRAYM0Jpq2sgKx3f5hFPyPbS51GNWBqTwWswL-mf9nNGvEmQQBcm0HrsOzE9Idp9qP27gKjZpjfkxOU0d1MSQSHOoxo-rXmSsZ0kPbwmibQsIApSPojOGsc0SoWPLskr5U67DPuq62Blk9zB6HUjT8MiMOJFlkH4NyC__2HWRAA"
+#$AccessToken = "BQCf0uWvqD0Nxb350XWSL1JIxSe4UY64SVopNivKQmSSk7fT-zfnfY0ipbEyDNjx6byoRAYM0Jpq2sgKx3f5hFPyPbS51GNWBqTwWswL-mf9nNGvEmQQBcm0HrsOzE9Idp9qP27gKjZpjfkxOU0d1MSQSHOoxo-rXmSsZ0kPbwmibQsIApSPojOGsc0SoWPLskr5U67DPuq62Blk9zB6HUjT8MiMOJFlkH4NyC__2HWRAA"
 
 # Headers used in all requests (except renewing access token)
 $Headers = @{}
@@ -71,12 +71,12 @@ catch
     }
 }
 
-
 # Genre Playlist
 If ($Mode -eq "Genre")
 {
     $CurrentUserTracksEndpoint = "me/tracks"
     $AlbumEndpoint = "albums/"
+    $ArtistEndpoint = "artists/"
     $LimitSuffix = "?limit=50"
     $OffsetSuffix = "&offset="
     $Offset = "0"
@@ -89,33 +89,28 @@ If ($Mode -eq "Genre")
 
     $TrackListJson = $TrackList.Content | ConvertFrom-Json
 
-    $TrackListJson `
-        | Select -expand items `
-        | Select -expand track `
-        | Select    id, `
-                    name, `
-                    @{Name = 'artists'; Expression = {$_.artists.name}}, `
-                    @{Name = 'album'; Expression = {$_.album.name}}
+    ForEach ($Track in $TrackListJson.items.track)
+    {
+        $TrackId = $Track.id
+        $TrackTitle = $Track.name
+        $ArtistId = $Track.artists[0].id
 
-    #$TracksWithAlbums = `
-    $TrackListJson `
-        | Select -expand items `
-        | Select -expand track `
-        | Select -expand album `
-        | Select id
-    $AlbumId = "3rXXjwi61u1Sh3ax42T5SV"
+        $ArtistFull = `
+            Invoke-WebRequest `
+            -Method Get `
+            -Uri ($SpotifyApiUrl + $ArtistEndpoint + $ArtistId) `
+            -Headers $Headers
 
-    $AlbumExample = `
-        Invoke-WebRequest `
-        -Method Get `
-        -Uri ($SpotifyApiUrl + $AlbumEndpoint + $AlbumId) `
-        -Headers $Headers
+        $Genres = ($ArtistFull.Content | ConvertFrom-Json) | Select genres
 
-    ($AlbumExample.Content | ConvertFrom-Json) | Select genres
+        $TrackId
+        $TrackTitle
+        $Genres
+    }
 }
 
-# Freshen up Playlist
+# Playlist of tracks not heard for a while
 ElseIf ($Mode -eq "Fresh")
 {
-    
+    Write-Host "Fresh mode"
 }
