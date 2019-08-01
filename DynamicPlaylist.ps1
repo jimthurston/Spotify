@@ -79,7 +79,7 @@ If ($Mode -eq "Genre")
     $ArtistEndpoint = "artists/"
     $LimitSuffix = "?limit=50"
     $OffsetSuffix = "&offset="
-    $Offset = "0"
+    $Offset = 0
 
     $TrackList = `
         Invoke-WebRequest `
@@ -88,24 +88,42 @@ If ($Mode -eq "Genre")
         -Headers $Headers
 
     $TrackListJson = $TrackList.Content | ConvertFrom-Json
+    $Total = $TrackListJson.total
 
-    ForEach ($Track in $TrackListJson.items.track)
+    While ($TrackListJson.items.Count -eq 50)
     {
-        $TrackId = $Track.id
-        $TrackTitle = $Track.name
-        $ArtistId = $Track.artists[0].id
+        ForEach ($Track in $TrackListJson.items.track)
+        {
+            $TrackId = $Track.id
+            $TrackTitle = $Track.name
+            $ArtistId = $Track.artists[0].id
 
-        $ArtistFull = `
+            $ArtistFull = `
+                Invoke-WebRequest `
+                -Method Get `
+                -Uri ($SpotifyApiUrl + $ArtistEndpoint + $ArtistId) `
+                -Headers $Headers
+
+            $Genres = ($ArtistFull.Content | ConvertFrom-Json) | Select genres
+
+            If ($Genres.genres.Contains($PlaylistGenre))
+            {
+                Write-Host "Match:" $TrackId $TrackTitle
+            }
+        }
+
+        $Offset = $Offset + 50
+
+        # Wait a minute so we don't thrash the API
+        Start-Sleep -Seconds 30
+
+        $TrackList = `
             Invoke-WebRequest `
             -Method Get `
-            -Uri ($SpotifyApiUrl + $ArtistEndpoint + $ArtistId) `
+            -Uri ($SpotifyApiUrl + $CurrentUserTracksEndpoint + $LimitSuffix + $OffsetSuffix + $Offset) `
             -Headers $Headers
 
-        $Genres = ($ArtistFull.Content | ConvertFrom-Json) | Select genres
-
-        $TrackId
-        $TrackTitle
-        $Genres
+        $TrackListJson = $TrackList.Content | ConvertFrom-Json
     }
 }
 
