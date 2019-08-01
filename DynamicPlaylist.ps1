@@ -3,7 +3,7 @@
 
 # Variables
 $Mode = "Genre"
-$PlaylistGenre = "classical"
+$PlaylistGenre = "progressive rock"
 $TrackCount = 10
 
 # Constants
@@ -75,11 +75,56 @@ catch
 If ($Mode -eq "Genre")
 {
     $CurrentUserTracksEndpoint = "me/tracks"
+    $CurrentUserPlaylistsEndpoint = "me/playlists"
     $AlbumEndpoint = "albums/"
     $ArtistEndpoint = "artists/"
     $LimitSuffix = "?limit=50"
     $OffsetSuffix = "&offset="
     $Offset = 0
+
+    # start by checking for existence of a playlist
+    $Playlists = `
+        Invoke-WebRequest `
+        -Method Get `
+        -Uri ($SpotifyApiUrl + $CurrentUserPlaylistsEndpoint + $LimitSuffix + $OffsetSuffix + $Offset) `
+        -Headers $Headers
+
+    $PlaylistsJson = $Playlists.Content | ConvertFrom-Json
+    $PlaylistMatch = $PlaylistsJson.items | Where-Object name -eq $PlaylistGenre
+
+    While ($PlaylistMatch -eq $null -and $PlaylistsJson.next -ne $null)
+    {
+        $Playlists = `
+            Invoke-WebRequest `
+            -Method Get `
+            -Uri ($PlaylistsJson.next) `
+            -Headers $Headers
+
+        $PlaylistsJson = $Playlists.Content | ConvertFrom-Json
+        $PlaylistMatch = $PlaylistsJson.items | Where-Object name -eq $PlaylistGenre
+    }
+
+    If ($PlaylistMatch -eq $null)
+    {
+        Write-Host "No playlist found.  Creating a new one"
+
+        $NewPlaylist =
+        @{
+            name = $PlaylistGenre
+            public = "false"
+        } | ConvertTo-Json
+
+        $PlaylistMatch =
+        Invoke-WebRequest `
+            -Method Post `
+            -Uri ($SpotifyApiUrl + $CurrentUserPlaylistsEndpoint) `
+            -Body $NewPlaylist `
+            -Headers $Headers
+    }
+    Else
+    {
+        Write-Host "Playlist found:" $PlaylistMatch.id $PlaylistMatch.name
+    }
 
     $TrackList = `
         Invoke-WebRequest `
@@ -109,6 +154,13 @@ If ($Mode -eq "Genre")
             If ($Genres.genres.Contains($PlaylistGenre))
             {
                 Write-Host "Match:" $TrackId $TrackTitle
+                $AddTrackUri = $SpotifyApiUrl + "playlists/" + $PlaylistMatch.id + "/tracks?position=0&uris=spotify:track:" + $TrackId
+                Write-Host $AddTrackUri
+ 
+                Invoke-WebRequest `
+                    -Method Post `
+                    -Uri $AddTrackUri `
+                    -Headers $Headers
             }
         }
 
