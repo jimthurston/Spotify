@@ -3,7 +3,7 @@
 
 # Variables
 $Mode = "Genre"
-$PlaylistGenre = "progressive rock"
+$PlaylistGenre = "classical"
 $TrackCount = 10
 
 # Constants
@@ -124,8 +124,21 @@ If ($Mode -eq "Genre")
     Else
     {
         Write-Host "Playlist found:" $PlaylistMatch.id $PlaylistMatch.name
+
+        # now clear the playlist so we can re-load it
+        $ClearPlaylist =
+        @{
+            uris = $null
+        } | ConvertTo-Json
+
+        Invoke-WebRequest `
+            -Method Post `
+            -Uri ($SpotifyApiUrl + "playlists/" + $PlaylistMatch.id + "/tracks") `
+            -Body $ClearPlaylist `
+            -Headers $Headers
     }
 
+    # now get all user's tracks
     $TrackList = `
         Invoke-WebRequest `
         -Method Get `
@@ -154,6 +167,8 @@ If ($Mode -eq "Genre")
             If ($Genres.genres.Contains($PlaylistGenre))
             {
                 Write-Host "Match:" $TrackId $TrackTitle
+
+                # add to playlist
                 $AddTrackUri = $SpotifyApiUrl + "playlists/" + $PlaylistMatch.id + "/tracks?position=0&uris=spotify:track:" + $TrackId
                 Write-Host $AddTrackUri
  
