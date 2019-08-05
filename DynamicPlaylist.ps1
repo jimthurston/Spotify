@@ -2,9 +2,9 @@
 ### For tips see https://www.pdq.com/blog/create-a-hipster-playlist-using-powershell/ ###
 
 # Variables
-$Mode = "Genre"
+$Mode = "Fresh"
 $PlaylistGenre = "classical"
-$TrackCount = 10
+$FreshTrackCount = 10
 
 # Constants
 $ClientId = "6c0ccee4314e43358a559c9027f88cb7"
@@ -125,17 +125,15 @@ If ($Mode -eq "Genre")
     {
         Write-Host "Playlist found:" $PlaylistMatch.id $PlaylistMatch.name
 
-        # now clear the playlist so we can re-load it
-        $ClearPlaylist =
-        @{
-            uris = $null
-        } | ConvertTo-Json
-
+        # now get all playlist tracks to check before adding
+        $PlaylistTracks =
         Invoke-WebRequest `
-            -Method Post `
+            -Method Get `
             -Uri ($SpotifyApiUrl + "playlists/" + $PlaylistMatch.id + "/tracks") `
-            -Body $ClearPlaylist `
             -Headers $Headers
+
+        $PlaylistTracks = ($PlaylistTracks.Content | ConvertFrom-Json).items
+        $PlaylistTracks = $PlaylistTracks.track.id
     }
 
     # now get all user's tracks
@@ -168,14 +166,17 @@ If ($Mode -eq "Genre")
             {
                 Write-Host "Match:" $TrackId $TrackTitle
 
-                # add to playlist
-                $AddTrackUri = $SpotifyApiUrl + "playlists/" + $PlaylistMatch.id + "/tracks?position=0&uris=spotify:track:" + $TrackId
-                Write-Host $AddTrackUri
+                # add to playlist if not there already
+                If (-Not ($PlaylistTracks -ne $null -and $PlaylistTracks.Contains($TrackId)))
+                {
+                    $AddTrackUri = $SpotifyApiUrl + "playlists/" + $PlaylistMatch.id + "/tracks?position=0&uris=spotify:track:" + $TrackId
+                    Write-Host $AddTrackUri
  
-                Invoke-WebRequest `
-                    -Method Post `
-                    -Uri $AddTrackUri `
-                    -Headers $Headers
+                    Invoke-WebRequest `
+                        -Method Post `
+                        -Uri $AddTrackUri `
+                        -Headers $Headers
+                }
             }
         }
 
@@ -198,4 +199,6 @@ If ($Mode -eq "Genre")
 ElseIf ($Mode -eq "Fresh")
 {
     Write-Host "Fresh mode"
+
+
 }
