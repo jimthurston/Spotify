@@ -11,7 +11,6 @@ $ClientId = "6c0ccee4314e43358a559c9027f88cb7"
 $ClientSecret = "dc716980faf14139975e81ea34d7041c"
 $RedirectUrl = "http://www.google.com/"
 $SpotifyApiUrl = "https://api.spotify.com/v1/"
-#$AccessToken = "BQCf0uWvqD0Nxb350XWSL1JIxSe4UY64SVopNivKQmSSk7fT-zfnfY0ipbEyDNjx6byoRAYM0Jpq2sgKx3f5hFPyPbS51GNWBqTwWswL-mf9nNGvEmQQBcm0HrsOzE9Idp9qP27gKjZpjfkxOU0d1MSQSHOoxo-rXmSsZ0kPbwmibQsIApSPojOGsc0SoWPLskr5U67DPuq62Blk9zB6HUjT8MiMOJFlkH4NyC__2HWRAA"
 
 # Headers used in all requests (except renewing access token)
 $Headers = @{}
@@ -41,7 +40,7 @@ catch
         "New token required."
 
         $AccessRequestUri = `            "https://accounts.spotify.com/authorize?" + `            "client_id=" + $ClientId + `            "&response_type=token" + `            "&redirect_uri=" + [uri]::EscapeDataString($RedirectUrl) + `
-            "&scope=" + [uri]::EscapeUriString("user-library-read playlist-read-collaborative playlist-modify-public playlist-read-private playlist-modify-private") + `
+            "&scope=" + [uri]::EscapeUriString("user-library-read playlist-read-collaborative playlist-modify-public playlist-read-private playlist-modify-private user-read-recently-played") + `
             "&show_dialog=false"
 
         "Access Request Uri: " + $AccessRequestUri
@@ -200,5 +199,36 @@ ElseIf ($Mode -eq "Fresh")
 {
     Write-Host "Fresh mode"
 
+    $LastListenedUri = "https://api.spotify.com/v1/me/player/recently-played?limit=50"
 
+    $LastListenedTracks = `
+        Invoke-WebRequest `
+        -Method Get `
+        -Uri ($LastListenedUri) `
+        -Headers $Headers
+
+    $LastListenedTracksJson = $LastListenedTracks.Content | ConvertFrom-Json
+
+    # set up object containing all play history
+    $PlayHistory = @()
+    $PlayHistory += $LastListenedTracksJson.items | Select-Object played_at, track
+
+    While ($LastListenedTracksJson.next -ne $null)
+    {
+        $LastListenedTracksJson.next
+
+        $LastListenedTracks = `
+            Invoke-WebRequest `
+            -Method Get `
+            -Uri ($LastListenedTracksJson.next) `
+            -Headers $Headers
+
+        $LastListenedTracksJson = $LastListenedTracks.Content | ConvertFrom-Json
+        $PlayHistory += $LastListenedTracksJson.items | Select-Object played_at, track
+
+        # Wait a minute so we don't thrash the API
+        Start-Sleep -Seconds 30
+    }
+
+    $PlayHistory
 }
